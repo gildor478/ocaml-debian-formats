@@ -1,0 +1,21 @@
+# OASIS_START
+# DO NOT EDIT (digest: 0fd2c2e981a907d9766967164bf79030)
+# Library debian-formats
+"src": include
+<src/*.ml{,i}>: pkg_str
+<src/*.ml{,i}>: pkg_mikmatch_pcre
+<src/*.ml{,i}>: pkg_extlib
+# Executable test
+"test/test.byte": use_debian-formats
+"test/test.byte": pkg_str
+"test/test.byte": pkg_oUnit
+"test/test.byte": pkg_mikmatch_pcre
+"test/test.byte": pkg_extlib
+<test/*.ml{,i}>: use_debian-formats
+<test/*.ml{,i}>: pkg_str
+<test/*.ml{,i}>: pkg_oUnit
+<test/*.ml{,i}>: pkg_mikmatch_pcre
+<test/*.ml{,i}>: pkg_extlib
+# OASIS_STOP
+
+"src/DFChangelog.ml": syntax_camlp4o

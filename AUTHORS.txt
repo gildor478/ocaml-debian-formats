@@ -1,0 +1,5 @@
+(* OASIS_START *)
+(* DO NOT EDIT (digest: d585127a26c1e2a388f9bd671a11e5d3) *)
+Authors of ocaml-debian-formats
+Sylvain Le Gall
+(* OASIS_STOP *)
