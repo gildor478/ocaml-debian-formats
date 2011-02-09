@@ -12,6 +12,7 @@ Library "debian-formats"
   Modules:         DebianFormats
   InternalModules: DF822_lexer,
                    DF822_parser,
+                   DF822,
                    DFUtils,
                    DFChangelog
   BuildDepends: extlib, str, mikmatch_pcre
