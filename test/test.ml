@@ -50,6 +50,22 @@ let tests =
              "0.0.3-1"
              e.Changelog.version);
       ]);
+
+   "Watch">:::
+   (List.map 
+      (fun (fn, f) ->
+         fn >::
+         with_fn fn
+           (fun ch ->
+              f (Watch.parse ch)))
+      [
+        "watch.oasis",
+        (fun lst ->
+           List.iter prerr_endline lst);
+        "watch.obus",
+        (fun lst ->
+           List.iter prerr_endline lst);
+      ]);
   ]
 
 

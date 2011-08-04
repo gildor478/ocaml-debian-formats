@@ -5,6 +5,7 @@ Synopsis:    Parse debian files
 Authors:     Sylvain Le Gall
 License:     LGPL-2.1 with OCaml linking exception
 Plugins:     DevFiles (0.2), META (0.2), StdFiles (0.2)
+BuildTools:  ocamlbuild 
 
 Library "debian-formats"
   Path:            src
@@ -14,12 +15,19 @@ Library "debian-formats"
                    DF822_parser,
                    DF822,
                    DFUtils,
-                   DFChangelog
+                   DFChangelog,
+                   DFWatch
   BuildDepends: extlib, str, mikmatch_pcre
   
+Document "api-debian-formats"
+  Title:   API reference for DebianFormats
+  InstallDir: $htmldir/debian-formats
+  XOCamlbuildPath: src/
+  XOCamlbuildLibraries: debian-formats
+  BuildTools+: ocamldoc
+
 Executable test
   Path:       test
-  BuildTools: ocamlbuild
   MainIs:     test.ml
   Install:    false
   BuildDepends: debian-formats, oUnit
@@ -29,3 +37,20 @@ Test main
   TestTools: test
   WorkingDirectory: test/data
   
+Flag "examples"
+  Description: Build and test examples
+  Default: false
+
+Executable "proto_oasis"
+  Path:         examples/proto_oasis
+  MainIs:       proto_oasis.ml
+  BuildDepends: debian-formats, curl, pcre, fileutils, archive.lwt, oasis, bz2, lwt.preemptive, threads
+  Install:      false
+  Build$:       flag(examples)
+  CompiledObject: best
+
+Test "proto_oasis"
+  Command:   $proto_oasis
+  TestTools:  proto_oasis
+#  Run$:       flag(examples)
+  Run: false

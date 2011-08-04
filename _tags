@@ -19,3 +19,4 @@
 # OASIS_STOP
 
 "src/DFChangelog.ml": syntax_camlp4o
+"src/DFWatch.ml": syntax_camlp4o

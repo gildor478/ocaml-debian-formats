@@ -19,6 +19,11 @@ type version = string
 type vpkg = (string * (string * string) option)
 type veqpkg = (string * (string * string) option)
 type architecture = string
+type md5sum = Digest.t
+type sha1 = string
+type sha256 = string
+type file_size = int64
+type filename = string
 
 (**/**)
 let default dflt f1 f2 fld = 
@@ -28,6 +33,26 @@ let default dflt f1 f2 fld =
     dflt
 
 (**/**)
+
+module Version = 
+struct 
+
+  let noepoch ver = 
+    try 
+      snd (String.split ver ":")
+    with Invalid_string ->
+      ver
+
+  let upstream ver = 
+    try 
+      fst (String.split (noepoch ver) "-")
+    with Invalid_string ->
+      ver
+
+  let is_native ver =
+    String.contains ver '-'
+
+end
 
 module Release = 
 struct 
@@ -42,9 +67,9 @@ struct
         architecture: string;
         component : string;
         description: string;
-        md5sums: (string * string * string) list;
-        sha1: (string * string * string) list;
-        sha256: (string * string * string) list
+        md5sums: (md5sum * file_size * string) list;
+        sha1:    (sha1   * file_size * string) list;
+        sha256:  (sha256 * file_size * string) list;
       }
 
   let parse ch =
@@ -80,21 +105,39 @@ struct
   type t = 
       {
         name : name;
-        version : version;
-        binary : vpkg list;
-        build_depends : (vpkg * (bool * architecture) list) list list;
-        build_depends_indep : (vpkg * (bool * architecture) list) list list;
-        build_conflicts : (vpkg * (bool * architecture) list) list;
+        version :               version;
+        binary :                vpkg list;
+        build_depends :         (vpkg * (bool * architecture) list) list list;
+        build_depends_indep :   (vpkg * (bool * architecture) list) list list;
+        build_conflicts :       (vpkg * (bool * architecture) list) list;
         build_conflicts_indep : (vpkg * (bool * architecture) list) list;
-        architecture : architecture list
+        architecture :          architecture list;
+        md5sums:                (md5sum * file_size * filename) list;
+        sha1:                   (sha1   * file_size * filename) list;
+        sha256:                 (sha256 * file_size * filename) list;
+        directory:              filename;
+        section:                string;
       }
 
   let parse_name = parse_package
-  let parse_arch s = Str.split (Str.regexp " ") s
+  let parse_arch s = List.filter (( <> ) "") (String.nsplit s " ")
   let parse_version s = parse_version s
   let parse_binary s = parse_vpkglist parse_constr s
   let parse_cnf s = parse_vpkgformula parse_builddeps s
   let parse_conj s = parse_vpkglist parse_builddeps s
+
+  let parse_cksum lst = 
+    List.fold_left 
+      (fun acc line ->
+         match List.filter ((<>) "") (String.nsplit line " ") with
+           | cksum :: sz :: tl ->
+               (cksum, Int64.of_string sz, (String.concat " " tl))
+               :: acc
+           | _ ->
+               acc)
+      []
+      (List.rev lst)
+
 
   (* Relationships between source and binary packages
    * http://www.debian.org/doc/debian-policy/ch-relationships.html
@@ -103,6 +146,7 @@ struct
   let parse_sources_fields par =
     let parse_s f field = f (single_line field (List.assoc field par)) in
     let parse_m f field = f (String.concat " " (List.assoc field par)) in
+    let parse_l f field = f (List.assoc field par) in
     let exec () =
       {
         name                  = parse_s parse_name    "package";
@@ -113,6 +157,11 @@ struct
         build_depends_indep   = default [] parse_m parse_cnf  "build-depends-indep";
         build_conflicts       = default [] parse_m parse_conj "build-conflicts";
         build_conflicts_indep = default [] parse_m parse_conj "build-conflicts-indep";
+        md5sums               = default [] parse_l parse_cksum "files";
+        sha1                  = default [] parse_l parse_cksum "checksums-sha1";
+        sha256                = default [] parse_l parse_cksum "checksums-sha256";
+        directory             = parse_s String.strip "directory";
+        section               = parse_s String.strip "section";
       }
     in
       try 
@@ -121,13 +170,56 @@ struct
         None (* this package doesn't either have version, arch or name *)
 
   (** parse a debian Sources file from channel *)
-  let parse ch =
+  let parse f ch =
     let parse_packages = 
       parse_822_iter parse_sources_fields 
     in
       parse_packages 
-        (fun i -> i)
+        f
         (start_from_channel ch)
+
+  let filename t ft = 
+    let test =
+      match ft with 
+        | `Dsc -> 
+            fun s ->
+              String.ends_with s ".dsc" 
+
+        | `Tarball ->
+            fun s ->
+              (not 
+                 (String.ends_with s ".debian.tar.gz" ||
+                  String.ends_with s ".debian.tar.bz2"))
+              &&
+              (String.ends_with s ".tar.gz" ||
+               String.ends_with s ".tar.bz2")
+
+        | `Diff ->
+            fun s ->
+              String.ends_with s ".diff.gz" ||
+              String.ends_with s ".debian.tar.gz" ||
+              String.ends_with s ".debian.tar.bz2"
+
+        | `Other fn ->
+            ( = ) fn
+    in
+    let md5sum, sz, fn = 
+      List.find (fun (_, _, fn) -> test fn) t.md5sums
+    in
+    let find acc f fld = 
+      try 
+        let digest, _, _ = 
+          List.find (fun (_, _, fn') -> fn = fn') fld
+        in
+          (f digest) :: acc
+      with Not_found ->
+        acc
+    in
+    let digests = [`MD5Sum md5sum] in
+    let digests = find digests (fun d -> `Sha1 d) t.sha1 in
+    let digests = find digests (fun d -> `Sha256 d) t.sha256 in
+      fn, sz, digests
+
 end
 
 module Binary = 
@@ -364,3 +456,60 @@ end
 
 module Changelog = DFChangelog
 
+module Watch = DFWatch
+
+module URI =
+struct
+  type uri = string
+  type mirror = uri 
+  type dist = string
+  type section = [`Main | `Contrib | `NonFree]
+
+  (**/**)
+  let concat uri1 uri2 = 
+    match String.ends_with uri1 "/", String.starts_with uri2 "/" with 
+      | true, true ->
+          uri1 ^ (String.lchop uri2)
+      | false, true
+      | true, false ->
+          uri1 ^ uri2
+      | false, false ->
+          uri1 ^ "/" ^ uri2
+
+  let rec concat_lst = 
+    function
+      | uri1 :: uri2 :: tl ->
+          concat_lst ((concat uri1 uri2) :: tl)
+      | [uri] ->
+          uri
+      | [] ->
+          ""
+
+  let string_of_section =
+    function
+      | `Main -> "main"
+      | `Contrib -> "contrib"
+      | `NonFree -> "non-free"
+  (**/**)
+
+
+  let sources mirror dist section =
+    concat_lst
+      [
+        mirror;
+        "dists";
+        dist;
+        string_of_section section;
+        "source/Sources.bz2"
+      ]
+
+  let pool mirror src fn = 
+    concat_lst 
+      [
+        mirror;
+        src.Source.directory;
+        fn;
+      ]
+
+
+end
