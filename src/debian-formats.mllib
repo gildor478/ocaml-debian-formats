@@ -1,10 +1,10 @@
 # OASIS_START
-# DO NOT EDIT (digest: 9bf30c39154519664ef8b355fca992ba)
+# DO NOT EDIT (digest: 5f07f2ed946434ee0d42ebf13155c161)
 DebianFormats
+DFChangelog
+DFWatch
 DF822_lexer
 DF822_parser
 DF822
 DFUtils
-DFChangelog
-DFWatch
 # OASIS_STOP
