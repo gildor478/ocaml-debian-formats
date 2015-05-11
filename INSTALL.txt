@@ -1,14 +1,16 @@
 (* OASIS_START *)
-(* DO NOT EDIT (digest: 32cb5f229ce37cd67342d43a2608bf3a) *)
+(* DO NOT EDIT (digest: 83e5c15f993dc7c8d28c7bd380b37a39) *)
+
 This is the INSTALL file for the ocaml-debian-formats distribution.
 
 This package uses OASIS to generate its build system. See section OASIS for
-full information. 
+full information.
 
 Dependencies
 ============
 
 In order to compile this package, you will need:
+
 * ocaml for all, test main, test proto_oasis, doc api-debian-formats
 * findlib
 * extlib for library debian-formats
@@ -33,7 +35,7 @@ Installing
 Uninstalling
 ============
 
-1. Go to the root of the package 
+1. Go to the root of the package
 2. Run 'ocaml setup.ml -uninstall'
 
 OASIS

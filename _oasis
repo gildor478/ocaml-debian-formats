@@ -10,13 +10,11 @@ BuildTools:  ocamlbuild
 Library "debian-formats"
   Path:            src
   BuildTools:      ocamlbuild
-  Modules:         DebianFormats
+  Modules:         DebianFormats, DFChangelog, DFWatch
   InternalModules: DF822_lexer,
                    DF822_parser,
                    DF822,
-                   DFUtils,
-                   DFChangelog,
-                   DFWatch
+                   DFUtils
   BuildDepends: extlib, str, mikmatch_pcre
 
 Document "api-debian-formats"
