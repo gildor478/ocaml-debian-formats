@@ -18,7 +18,7 @@ Library "debian-formats"
                    DFChangelog,
                    DFWatch
   BuildDepends: extlib, str, mikmatch_pcre
-  
+
 Document "api-debian-formats"
   Title:   API reference for DebianFormats
   InstallDir: $htmldir/debian-formats
@@ -31,12 +31,12 @@ Executable test
   MainIs:     test.ml
   Install:    false
   BuildDepends: debian-formats, oUnit
-  
+
 Test main
   Command: $test
   TestTools: test
   WorkingDirectory: test/data
-  
+
 Flag "examples"
   Description: Build and test examples
   Default: false
