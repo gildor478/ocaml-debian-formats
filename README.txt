@@ -14,3 +14,7 @@ ocaml-debian-formats is distributed under the terms of the GNU Lesser General
 Public License version 2.1 with OCaml linking exception.
 
 (* OASIS_STOP *)
+
+
+The main repository for developping this library can be found on
+[github](https://github.com/gildor478/ocaml-debian-formats).
