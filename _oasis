@@ -1,10 +1,10 @@
-OASISFormat: 0.2
+OASISFormat: 0.4
 Name:        ocaml-debian-formats
 Version:     0.1.0
 Synopsis:    Parse debian files
 Authors:     Sylvain Le Gall
 License:     LGPL-2.1 with OCaml linking exception
-Plugins:     DevFiles (0.2), META (0.2), StdFiles (0.2)
+Plugins:     DevFiles (0.4), META (0.4), StdFiles (0.4)
 BuildTools:  ocamlbuild
 
 Library "debian-formats"
@@ -18,11 +18,12 @@ Library "debian-formats"
   BuildDepends: extlib, str, mikmatch_pcre
 
 Document "api-debian-formats"
-  Title:   API reference for DebianFormats
-  InstallDir: $htmldir/debian-formats
-  XOCamlbuildPath: src/
+  Title:                API reference for DebianFormats
+  Type:                 OCamlbuild (0.4)
+  InstallDir:           $htmldir/debian-formats
+  BuildTools+:          ocamldoc
+  XOCamlbuildPath:      src/
   XOCamlbuildLibraries: debian-formats
-  BuildTools+: ocamldoc
 
 Executable test
   Path:       test
