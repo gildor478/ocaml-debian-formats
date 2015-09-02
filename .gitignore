@@ -4,3 +4,4 @@ setup.log
 test.byte
 proto_oasis.native
 tmp
+/dist/
