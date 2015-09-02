@@ -1,6 +1,6 @@
 OASISFormat: 0.4
 Name:        ocaml-debian-formats
-Version:     0.1.0
+Version: 0.1.1
 Synopsis:    Parse debian files
 Authors:     Sylvain Le Gall
 License:     LGPL-2.1 with OCaml linking exception
