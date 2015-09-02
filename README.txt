@@ -18,3 +18,8 @@ Public License version 2.1 with OCaml linking exception.
 
 The main repository for developping this library can be found on
 [github](https://github.com/gildor478/ocaml-debian-formats).
+
+Releases are available on the
+[forge site](https://forge.ocamlcore.org/projects/debian-formats/)
+in the [files section](https://forge.ocamlcore.org/frs/?group_id=358).
+
