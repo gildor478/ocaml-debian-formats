@@ -22,7 +22,7 @@
 open DFUtils
 open ExtString
 
-type entry = 
+type entry =
     {
       source: string;
       version: string;
@@ -36,26 +36,26 @@ type entry =
 
 RE name_chars = ['-' '+' '0'-'9' 'a'-'z' '.']~
 
-exception Skip_end 
+exception Skip_end
 
-(* Skip lines until it reachs the end 
+(* Skip lines until it reachs the end
  * of [ch]. Returns [Some _] if a matching
  * line is found and None if end is reached.
  *)
-let skip_line ?fst ch = 
-  let getl count f = 
-    let l = 
-      try 
+let skip_line ?fst ch =
+  let getl count f =
+    let l =
+      try
         Some (IO.read_line ch)
       with IO.No_more_input ->
         None
     in
-      match l with 
+      match l with
         | Some line -> f (count + 1) line
         | None -> count, None
   in
 
-  let rec skip_line' count = 
+  let rec skip_line' count =
     function
         (* Skip emacs variables, should be last line *)
         | RE bol (";;" space* )?"Local variables:"~ ->
@@ -80,7 +80,7 @@ let skip_line ?fst ch =
         | str ->
             count, Some str
   in
-    match fst with 
+    match fst with
       | Some line ->
           begin
             skip_line' 0 line
@@ -91,53 +91,53 @@ let skip_line ?fst ch =
             getl 0 skip_line'
           end
 
-let parse_one ch fst = 
-  let buff = 
+let parse_one ch fst =
+  let buff =
     Buffer.create 13
   in
 
   let next ?fst where f =
-    match skip_line ?fst ch with 
+    match skip_line ?fst ch with
       | 0, Some line ->
-          failwith 
-            (Printf.sprintf 
+          failwith
+            (Printf.sprintf
                "Badly formatted %s line: '%s'"
                where line)
       | _, Some line ->
           f line
       | _, None ->
-          failwith 
-            (Printf.sprintf 
+          failwith
+            (Printf.sprintf
                "Unexpected end of file when parsing %s"
                where)
   in
 
-  let parse_optional_fields str = 
-    let lst = 
+  let parse_optional_fields str =
+    let lst =
       (SPLIT space* "," space* ) str
     in
     let lst' =
       List.map
         (function
-           | RE bol (['-' '0'-'9' 'a'-'z']+ as key) 
+           | RE bol (['-' '0'-'9' 'a'-'z']+ as key)
                "=" space*
                (_* as value) ~ ->
               key, value
            | str ->
-               failwith 
-                 (Printf.sprintf 
+               failwith
+                 (Printf.sprintf
                     "Badly formatted optional field '%s'"
                     str))
         lst
     in
-    let is_urgency (k,_) = 
+    let is_urgency (k,_) =
       String.lowercase k = "urgency"
     in
-    let _, urgency = 
-      try 
+    let _, urgency =
+      try
         List.find is_urgency lst'
       with Not_found ->
-        failwith 
+        failwith
           "Cannot find urgency field"
     in
       urgency, (List.filter (fun e -> not (is_urgency e)) lst')
@@ -147,14 +147,14 @@ let parse_one ch fst =
     (* TODO *)
     ()
 
-  and parse_header line = 
-    match line with 
+  and parse_header line =
+    match line with
       (* Regex header *)
-      | RE bol (alpha name_chars* as source) 
-          " (" (_* as version) ")" 
+      | RE bol (alpha name_chars* as source)
+          " (" (_* as version) ")"
           ((space+ name_chars+)* as distribs)
           ";" space* (_* as extra_fields) ->
-          let maintainer, timestamp = 
+          let maintainer, timestamp =
             next "changes/trailer" parse_change_or_trailer
           in
           let urgency, optional_fields =
@@ -163,7 +163,7 @@ let parse_one ch fst =
           let distributions =
             (SPLIT space+) distribs
           in
-          let changes = 
+          let changes =
             Buffer.contents buff
           in
             Buffer.clear buff;
@@ -188,15 +188,15 @@ let parse_one ch fst =
           next "changes/trailer" parse_change_or_trailer
 
       (* Regex trailer *)
-      | RE bol " -- " (_* as maint) 
+      | RE bol " -- " (_* as maint)
           space+
-          "<" (_* as mail) ">" 
-          space+ 
+          "<" (_* as mail) ">"
+          space+
           ((alpha+ "," space* )?
-            digit{1-2} space+ alpha+ space+ digit{4}  
-            space+ digit{1-2} ":" digit digit ":" digit digit  
-            space+ ['-''+'] digit{4} 
-            (space+ "(" _ ")")? as timestamp) 
+            digit{1-2} space+ alpha+ space+ digit{4}
+            space+ digit{1-2} ":" digit digit ":" digit digit
+            space+ ['-''+'] digit{4}
+            (space+ "(" _ ")")? as timestamp)
           space* ->
           (Printf.sprintf "%s <%s>" maint mail), timestamp
 
@@ -205,49 +205,49 @@ let parse_one ch fst =
   in
     parse_header fst
 
-(** Only parse the first entry 
+(** Only parse the first entry
   *)
-let head ch = 
-  match skip_line ch with 
+let head ch =
+  match skip_line ch with
     | _, Some line ->
         parse_one ch line
     | _, None ->
         failwith "No first changelog entry"
 
-(** Parse the full changelog 
+(** Parse the full changelog
   *)
-let parse ch = 
-  let rec parse_aux lst = 
-    match skip_line ch with 
-      | _, Some line -> 
+let parse ch =
+  let rec parse_aux lst =
+    match skip_line ch with
+      | _, Some line ->
           parse_aux ((parse_one ch line) :: lst)
       | _, None ->
           List.rev lst
   in
     parse_aux []
 
-let to_string e = 
-  let buff = 
+let to_string e =
+  let buff =
     Buffer.create 13
   in
   let add fmt =
-    Printf.ksprintf 
-      (fun s -> 
+    Printf.ksprintf
+      (fun s ->
          Buffer.add_string buff s;
          Buffer.add_char buff '\n')
-      fmt 
+      fmt
   in
     add "%s (%s) %s; %s"
-      e.source 
-      e.version 
+      e.source
+      e.version
       (String.concat " " e.distributions)
-      (String.concat ", " 
-         (List.map 
+      (String.concat ", "
+         (List.map
             (fun (k,v) ->
                Printf.sprintf "%s=%s" k v)
             (("urgency", e.urgency) :: e.optional_fields)));
     add "";
-    List.iter 
+    List.iter
       (add "  %s")
       (String.nsplit e.changes "\n");
     add "";
@@ -257,12 +257,12 @@ let to_string e =
 let filename =
   Filename.concat "debian" "changelog"
 
-let default () = 
+let default () =
   with_fn
     filename
     parse
 
-let default_head () = 
+let default_head () =
   with_fn
     filename
     head
