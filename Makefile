@@ -78,7 +78,7 @@ headache:
 	  -o -name opam -prune -false \
 	  -o -name data -prune -false \
 	  -o -name '*[^~]' -type f \
-	  | xargs headache -h _header -c _headache.config
+	  | xargs /usr/bin/headache -h _header -c _headache.config
 
 .PHONY: headache
 

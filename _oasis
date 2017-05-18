@@ -52,5 +52,4 @@ Executable "proto_oasis"
 Test "proto_oasis"
   Command:   $proto_oasis
   TestTools:  proto_oasis
-#  Run$:       flag(examples)
   Run: false
