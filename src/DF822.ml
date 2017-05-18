@@ -35,9 +35,9 @@ type t =
     mutable eof : bool }
 
 let print_warning fmt =
-  Printf.eprintf fmt 
+  Printf.ifprintf () fmt
 
-let dummy_t = { next = (fun _ -> ("",0)); cur = ""; eof = false; line = -1 } 
+let dummy_t = { next = (fun _ -> ("",0)); cur = ""; eof = false; line = -1 }
 
 let eof i = i.eof
 
@@ -46,23 +46,23 @@ let cur i =
   i.cur
 
 let parse_error ?s i =
-  let err_string = 
+  let err_string =
     match s with
       | None when i.line > 0 ->
-          Printf.sprintf 
-            "Parse error at line %d: \"%s\"" 
+          Printf.sprintf
+            "Parse error at line %d: \"%s\""
             i.line i.cur
       | None ->
-          Printf.sprintf 
-            "Parse error : \"%s\"" 
+          Printf.sprintf
+            "Parse error : \"%s\""
             i.cur
       | Some s when i.line > 0 ->
-          Printf.sprintf 
-            "Error: %s at line %d: \"%s\"" 
+          Printf.sprintf
+            "Error: %s at line %d: \"%s\""
             s i.line i.cur
       | Some s ->
-          Printf.sprintf 
-            "Error: %s : \"%s\"" 
+          Printf.sprintf
+            "Error: %s : \"%s\""
             s i.cur
   in
     failwith err_string
@@ -186,14 +186,14 @@ let version_re_2 =
 let check_version i s =
   if not (Str.string_match strict_version_re_1 s 0 || Str.string_match strict_version_re_2 s 0) then begin
     (print_warning "bad version '%s'" s);
-    if not (Str.string_match version_re_1 s 0 || Str.string_match version_re_2 s 0) then 
+    if not (Str.string_match version_re_1 s 0 || Str.string_match version_re_2 s 0) then
       (* parse_error ~s:(Printf.sprintf "Bad version '%s'" s) i *)
       raise (ParseError ((Printf.sprintf "Bad version '%s'" s), i.line))
   end
 
-let parse_version s = 
+let parse_version s =
   begin try check_version dummy_t s
-  with ParseError (s,i) -> parse_error ~s:s dummy_t end;
+  with ParseError (s,_) -> parse_error ~s:s dummy_t end;
   s
 ;;
 
@@ -212,7 +212,7 @@ let check_package_name i s =
 
 let parse_package s =
   begin try check_package_name dummy_t s
-  with ParseError (s,i) -> parse_error ~s:s dummy_t end ;
+  with ParseError (s,_) -> parse_error ~s:s dummy_t end ;
   s
 ;;
 
@@ -223,7 +223,7 @@ let parse_constr_aux vers s =
   check_package_name s name;
   next s;
   if not (eof s) && cur s = "(" then begin
-    try 
+    try
       if not vers then
         parse_error ~s:(Printf.sprintf "Package version not allowed in '%s'" name) s;
       next s;
@@ -252,7 +252,7 @@ let parse_virtual_constr_aux vers s =
   check_package_name s name;
   next s;
   if not (eof s) && cur s = "(" then begin
-    try 
+    try
       if not vers then
         parse_error ~s:(Printf.sprintf "Package version not allowed in '%s'" name) s;
       next s;
@@ -285,7 +285,7 @@ let parse_builddeps s =
     while not (eof s) && not((cur s) = "]") do
       if not (eof s) && cur s = "!" then
         ( next s; l := (false,cur s)::!l )
-      else 
+      else
         ( l := (true,cur s)::!l )
       ;
       next s
@@ -298,55 +298,55 @@ let parse_builddeps s =
 (*****************************************************)
 
 let parse_source s =
-  let space_lst = 
-    List.flatten 
-      (List.map 
+  let space_lst =
+    List.flatten
+      (List.map
          (fun s -> String.nsplit s " ")
          (String.nsplit s "\t"))
   in
     match space_lst with
-      |[n] -> 
+      |[n] ->
           (n,None)
       |[n;s'] ->
           begin
-            let re = 
-              Str.regexp "(\\([^)]+\\))" 
+            let re =
+              Str.regexp "(\\([^)]+\\))"
             in
-              if Str.string_match re s' 0 then 
+              if Str.string_match re s' 0 then
                 (n,Some (Str.matched_group 1 s'))
-              else 
+              else
                 begin
                   print_warning "bad source name '%s'\n" s;
                   (n,None)
                 end
           end
-      |_ -> 
-          parse_error 
-            ~s:(Printf.sprintf "Malformed source field : '%s'" s) 
+      |_ ->
+          parse_error
+            ~s:(Printf.sprintf "Malformed source field : '%s'" s)
             dummy_t
 
-let and_list_parser p s = 
-  List.map 
+let and_list_parser p s =
+  List.map
     (fun str ->
        p (String.strip str))
     (String.nsplit s ",")
 
-let parse_vpkglist parse_vpkg = 
+let parse_vpkglist parse_vpkg =
   and_list_parser parse_vpkg
 
 let parse_vpkgformula parse_vpkg s =
-  List.map 
+  List.map
     (fun and_arg ->
-       let or_args = 
+       let or_args =
          String.nsplit and_arg "|"
        in
-         List.map 
+         List.map
            (fun str ->
               parse_vpkg (String.strip str))
            or_args)
   (String.nsplit s ",")
 
-let parse_veqpkglist parse_veqpkg = 
+let parse_veqpkglist parse_veqpkg =
   and_list_parser parse_veqpkg
 
 exception Eof
@@ -354,7 +354,7 @@ exception Eof
 (** parse a 822 compliant file.
     @return list of packages.
     @param parse : paragraph parser
-    @param f : filter to be applied to each paragraph 
+    @param f : filter to be applied to each paragraph
     @param ExtLib.IO.input channel *)
 let parse_822_iter parse f ch =
   let l = ref [] in

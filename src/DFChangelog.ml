@@ -34,100 +34,114 @@ type entry =
       changes: string;
     }
 
-RE name_chars = ['-' '+' '0'-'9' 'a'-'z' '.']~
+let skip_line_re =
+  Re.(compile (seq [bol; alt [
+      seq [opt (seq [str ";;"; rep space]); str "Local variables:"];
+      str "vim:";
+      str "# ";
+      seq [str "/*"; non_greedy (rep any); str "*/"];
+      seq [rep space; eol]]]))
 
-exception Skip_end
-
-(* Skip lines until it reachs the end
- * of [ch]. Returns [Some _] if a matching
- * line is found and None if end is reached.
+(* Skip lines until it reachs the end of [ch]. Returns [Some _] if a matching
+   line is found and None if end is reached.
  *)
 let skip_line ?fst ch =
-  let getl count f =
+  let rec getl count =
     let l =
       try
         Some (IO.read_line ch)
       with IO.No_more_input ->
         None
     in
-      match l with
-        | Some line -> f (count + 1) line
-        | None -> count, None
+    match l with
+    | Some line -> skip_line' (count + 1) line
+    | None -> count, None
+  and skip_line' count line =
+    if Re.exec_partial skip_line_re line <> `Mismatch then
+      getl count
+    else
+      count, Some line
   in
+  match fst with
+  | Some line -> skip_line' 0 line
+  | None -> getl 0
 
-  let rec skip_line' count =
-    function
-        (* Skip emacs variables, should be last line *)
-        | RE bol (";;" space* )?"Local variables:"~ ->
-            count, None
+let optional_fields_re =
+  Re.(compile (seq [
+      bol;
+      group (rep1 (alt [alpha; char '-']));  (* key *)
+      char '='; rep space;
+      group (rep any)])) (* value *)
 
-        (* Skip vim variables, should be last line *)
-        | RE bol "vim:"~ ->
-            count, None
-
-        (* Skip CVS keyword *)
-        | RE bol "# " ->
-            getl count skip_line'
-
-        (* Skip comments, even that's not supported *)
-        | RE bol "/*" _* "*/" ->
-            getl count skip_line'
-
-        (* Blank line *)
-        | RE bol space* eol ->
-            getl count skip_line'
-
-        | str ->
-            count, Some str
+let header_re =
+  let name_chars =
+    Re.(alt [char '-'; char '+'; char '.'; alpha])
   in
-    match fst with
-      | Some line ->
-          begin
-            skip_line' 0 line
-          end
+  Re.(compile (seq [
+      bol;
+      group (seq [alpha ; rep name_chars]); (* source *)
+      str " ("; group (non_greedy (rep any)); char ')'; (* version *)
+      group (rep1 (seq [rep1 space; rep1 name_chars])); (* distribs *)
+      char ';'; rep space;
+      group (rep any)])) (* extra_fields *)
 
-      | None ->
-          begin
-            getl 0 skip_line'
-          end
+let trailer_re =
+  let digitn n = Re.(repn digit n (Some n)) in
+  Re.(compile (seq [
+      bol; str " -- ";
+      group (rep any);  (* maint *)
+      rep1 space;
+      char '<'; group (rep any); char '>';  (* mail *)
+      rep1 space;
+      group (seq [
+          (* "Thu, " *)
+          opt (seq [rep1 alpha; char ','; rep space]);
+          (* "18 " *)
+          repn digit 1 (Some 2); rep1 space;
+          (* "May " *)
+          rep1 alpha; rep1 space;
+          (* "2017 " *)
+          digitn 4; rep1 space;
+          (* "00:24:12 " *)
+          digitn 2; char ':'; digitn 2; char ':'; digitn 2; rep1 space;
+          (* "+0200" *)
+          alt [char '-'; char '+']; digitn 4;
+          opt (seq [rep1 space; char '('; any; char ')'])]); (* timestamp *)
+      rep space]))
 
 let parse_one ch fst =
-  let buff =
-    Buffer.create 13
-  in
+  let buff = Buffer.create 13 in
 
   let next ?fst where f =
     match skip_line ?fst ch with
-      | 0, Some line ->
-          failwith
-            (Printf.sprintf
-               "Badly formatted %s line: '%s'"
-               where line)
-      | _, Some line ->
-          f line
-      | _, None ->
-          failwith
-            (Printf.sprintf
-               "Unexpected end of file when parsing %s"
-               where)
+    | 0, Some line ->
+      failwith
+        (Printf.sprintf
+           "Badly formatted %s line: '%s'"
+           where line)
+    | _, Some line -> f line
+    | _, None ->
+      failwith
+        (Printf.sprintf
+           "Unexpected end of file when parsing %s"
+           where)
   in
 
   let parse_optional_fields str =
     let lst =
-      (SPLIT space* "," space* ) str
+      Re.(split (compile (seq [rep space; char ','; rep space]))) str
     in
     let lst' =
       List.map
-        (function
-           | RE bol (['-' '0'-'9' 'a'-'z']+ as key)
-               "=" space*
-               (_* as value) ~ ->
-              key, value
-           | str ->
-               failwith
-                 (Printf.sprintf
-                    "Badly formatted optional field '%s'"
-                    str))
+        (fun str ->
+           try
+             let grps = Re.exec optional_fields_re str in
+             Re.Group.get grps 1, Re.Group.get grps 2
+           with Not_found ->
+             failwith
+               (Printf.sprintf
+                  "Badly formatted optional field '%s'"
+                  str))
         lst
     in
     let is_urgency (k,_) =
@@ -140,96 +154,73 @@ let parse_one ch fst =
         failwith
           "Cannot find urgency field"
     in
-      urgency, (List.filter (fun e -> not (is_urgency e)) lst')
+    urgency, (List.filter (fun e -> not (is_urgency e)) lst')
   in
 
-  let rec _parse_keep line =
-    (* TODO *)
-    ()
-
-  and parse_header line =
-    match line with
-      (* Regex header *)
-      | RE bol (alpha name_chars* as source)
-          " (" (_* as version) ")"
-          ((space+ name_chars+)* as distribs)
-          ";" space* (_* as extra_fields) ->
-          let maintainer, timestamp =
-            next "changes/trailer" parse_change_or_trailer
-          in
-          let urgency, optional_fields =
-            parse_optional_fields extra_fields
-          in
-          let distributions =
-            (SPLIT space+) distribs
-          in
-          let changes =
-            Buffer.contents buff
-          in
-            Buffer.clear buff;
-            {
-              source          = source;
-              version         = version;
-              distributions   = distributions;
-              optional_fields = optional_fields;
-              urgency         = urgency;
-              maintainer      = maintainer;
-              timestamp       = timestamp;
-              changes         = changes;
-            }
-
-      | _ ->
-          next "header" ~fst:line parse_header
+  let rec parse_header line =
+    try
+      (* Try to parse header. *)
+      let grps = Re.exec header_re line in
+      let source = Re.Group.get grps 1 in
+      let version = Re.Group.get grps 2 in
+      let distribs = Re.Group.get grps 3 in
+      let extra_fields = Re.Group.get grps 4 in
+      let maintainer, timestamp =
+        next "changes/trailer" parse_change_or_trailer
+      in
+      let urgency, optional_fields = parse_optional_fields extra_fields in
+      let distributions = Re.(split (compile (rep1 space))) distribs in
+      let changes = Buffer.contents buff in
+        Buffer.clear buff;
+        {
+          source          = source;
+          version         = version;
+          distributions   = distributions;
+          optional_fields = optional_fields;
+          urgency         = urgency;
+          maintainer      = maintainer;
+          timestamp       = timestamp;
+          changes         = changes;
+        }
+    with Not_found ->
+      next "header" ~fst:line parse_header
 
   and parse_change_or_trailer line =
-    match line with
-      | RE bol space{2} (_* as str) ->
-          Buffer.add_string buff str;
-          next "changes/trailer" parse_change_or_trailer
-
-      (* Regex trailer *)
-      | RE bol " -- " (_* as maint)
-          space+
-          "<" (_* as mail) ">"
-          space+
-          ((alpha+ "," space* )?
-            digit{1-2} space+ alpha+ space+ digit{4}
-            space+ digit{1-2} ":" digit digit ":" digit digit
-            space+ ['-''+'] digit{4}
-            (space+ "(" _ ")")? as timestamp)
-          space* ->
-          (Printf.sprintf "%s <%s>" maint mail), timestamp
-
-      | _ ->
-          next "changes/trailer" ~fst:line parse_change_or_trailer
+    if String.starts_with line "  " then begin
+      Buffer.add_substring buff line 2 ((String.length line) - 2);
+      next "changes/trailer" parse_change_or_trailer
+    end else begin
+      try
+        let grps = Re.exec trailer_re line in
+        let maint = Re.Group.get grps 1 in
+        let mail = Re.Group.get grps 2 in
+        let timestamp = Re.Group.get grps 3 in
+        Printf.sprintf "%s <%s>" maint mail, timestamp
+      with Not_found ->
+        next "changes/trailer" ~fst:line parse_change_or_trailer
+    end
   in
-    parse_header fst
+  parse_header fst
 
 (** Only parse the first entry
   *)
 let head ch =
   match skip_line ch with
-    | _, Some line ->
-        parse_one ch line
-    | _, None ->
-        failwith "No first changelog entry"
+  | _, Some line -> parse_one ch line
+  | _, None -> failwith "No first changelog entry"
 
 (** Parse the full changelog
   *)
 let parse ch =
   let rec parse_aux lst =
     match skip_line ch with
-      | _, Some line ->
-          parse_aux ((parse_one ch line) :: lst)
-      | _, None ->
-          List.rev lst
+    | _, Some line -> parse_aux ((parse_one ch line) :: lst)
+    | _, None -> List.rev lst
   in
-    parse_aux []
+  parse_aux []
 
 let to_string e =
-  let buff =
-    Buffer.create 13
-  in
+  let buff = Buffer.create 13 in
   let add fmt =
     Printf.ksprintf
       (fun s ->
@@ -254,15 +245,6 @@ let to_string e =
     add " -- %s %s" e.maintainer e.timestamp;
     Buffer.contents buff
 
-let filename =
-  Filename.concat "debian" "changelog"
-
-let default () =
-  with_fn
-    filename
-    parse
-
-let default_head () =
-  with_fn
-    filename
-    head
+let filename = Filename.concat "debian" "changelog"
+let default () = with_fn filename parse
+let default_head () = with_fn filename head

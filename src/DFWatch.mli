@@ -19,7 +19,4 @@
 (*  Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301 USA             *)
 (******************************************************************************)
 
-val __mikmatch_regexp_1 : Pcre.regexp
-val __mikmatch_regexp_2 : Pcre.regexp
-val __mikmatch_regexp_3 : Pcre.regexp
 val parse : IO.input -> string list

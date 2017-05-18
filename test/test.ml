@@ -19,22 +19,20 @@
 (*  Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301 USA             *)
 (******************************************************************************)
 
-open OUnit
+open OUnit2
 open DebianFormats
 
-let with_fn fn f = 
-  bracket 
-    (fun () ->
-       open_in fn)
-    (fun chn ->
-       f (IO.input_channel chn))
-    (fun chn ->
-       close_in chn)
+let with_fn fn f =
+  fun test_ctxt ->
+    let chn =
+      bracket (fun _ -> open_in fn) (fun chn _ -> close_in chn) test_ctxt
+    in
+    f (IO.input_channel chn)
 
 let tests =
   "DebianFormats">:::
   ["Control">:::
-   (List.map 
+   (List.map
       (fun (fn, f) ->
          fn >::
          with_fn fn
@@ -42,15 +40,15 @@ let tests =
               f (Control.parse ch)))
       [
         "control.ocaml-data-notation",
-        (fun (src, binaries) ->
-           assert_equal 
+        (fun (src, _) ->
+           assert_equal
              ~printer:(fun s -> s)
              "ocaml-data-notation"
              src.Control.source)
       ]);
 
    "Changelog">:::
-   (List.map 
+   (List.map
       (fun (fn, f) ->
          fn >::
          with_fn fn
@@ -59,7 +57,7 @@ let tests =
       [
         "changelog.ocaml-data-notation",
         (fun e ->
-           assert_equal 
+           assert_equal
              ~msg:"source"
              ~printer:(fun s -> s)
              "ocaml-data-notation"
@@ -72,22 +70,18 @@ let tests =
       ]);
 
    "Watch">:::
-   (List.map 
+   (List.map
       (fun (fn, f) ->
          fn >::
          with_fn fn
            (fun ch ->
               f (Watch.parse ch)))
       [
-        "watch.oasis",
-        (fun lst ->
-           List.iter prerr_endline lst);
-        "watch.obus",
-        (fun lst ->
-           List.iter prerr_endline lst);
+        "watch.oasis", ignore;
+        "watch.obus", ignore;
       ]);
   ]
 
 
-let _ = 
+let _ =
   run_test_tt_main tests

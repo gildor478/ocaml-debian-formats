@@ -35,25 +35,25 @@ type file_size = int64
 type filename = string
 
 (**/**)
-let default dflt f1 f2 fld = 
-  try 
+let default dflt f1 f2 fld =
+  try
     f1 f2 fld
-  with Not_found -> 
+  with Not_found ->
     dflt
 
 (**/**)
 
-module Version = 
-struct 
+module Version =
+struct
 
-  let noepoch ver = 
-    try 
+  let noepoch ver =
+    try
       snd (String.split ver ":")
     with Invalid_string ->
       ver
 
-  let upstream ver = 
-    try 
+  let upstream ver =
+    try
       fst (String.split (noepoch ver) "-")
     with Invalid_string ->
       ver
@@ -63,9 +63,9 @@ struct
 
 end
 
-module Release = 
-struct 
-  type t = 
+module Release =
+struct
+  type t =
       {
         origin : string;
         label : string;
@@ -103,15 +103,15 @@ struct
         }
     in
       match parse_paragraph (start_from_channel ch) with
-      | None -> 
+      | None ->
           raise Not_found
-      | Some par -> 
+      | Some par ->
           parse_release_fields par
 end
 
-module Source = 
-struct 
-  type t = 
+module Source =
+struct
+  type t =
       {
         name : name;
         version :               version;
@@ -135,8 +135,8 @@ struct
   let parse_cnf s = parse_vpkgformula parse_builddeps s
   let parse_conj s = parse_vpkglist parse_builddeps s
 
-  let parse_cksum lst = 
-    List.fold_left 
+  let parse_cksum lst =
+    List.fold_left
       (fun acc line ->
          match List.filter ((<>) "") (String.nsplit line " ") with
            | cksum :: sz :: tl ->
@@ -169,34 +169,34 @@ struct
         md5sums               = default [] parse_l parse_cksum "files";
         sha1                  = default [] parse_l parse_cksum "checksums-sha1";
         sha256                = default [] parse_l parse_cksum "checksums-sha256";
-        directory             = parse_s String.strip "directory";
-        section               = parse_s String.strip "section";
+        directory             = parse_s (fun s -> String.strip s) "directory";
+        section               = parse_s (fun s -> String.strip s) "section";
       }
     in
-      try 
-        Some (exec ()) 
-      with Not_found -> 
+      try
+        Some (exec ())
+      with Not_found ->
         None (* this package doesn't either have version, arch or name *)
 
   (** parse a debian Sources file from channel *)
   let parse f ch =
-    let parse_packages = 
-      parse_822_iter parse_sources_fields 
+    let parse_packages =
+      parse_822_iter parse_sources_fields
     in
-      parse_packages 
+      parse_packages
         f
         (start_from_channel ch)
 
-  let filename t ft = 
+  let filename t ft =
     let test =
-      match ft with 
-        | `Dsc -> 
+      match ft with
+        | `Dsc ->
             fun s ->
-              String.ends_with s ".dsc" 
+              String.ends_with s ".dsc"
 
         | `Tarball ->
             fun s ->
-              (not 
+              (not
                  (String.ends_with s ".debian.tar.gz" ||
                   String.ends_with s ".debian.tar.bz2"))
               &&
@@ -212,12 +212,12 @@ struct
         | `Other fn ->
             ( = ) fn
     in
-    let md5sum, sz, fn = 
+    let md5sum, sz, fn =
       List.find (fun (_, _, fn) -> test fn) t.md5sums
     in
-    let find acc f fld = 
-      try 
-        let digest, _, _ = 
+    let find acc f fld =
+      try
+        let digest, _, _ =
           List.find (fun (_, _, fn') -> fn = fn') fld
         in
           (f digest) :: acc
@@ -231,10 +231,10 @@ struct
 
 end
 
-module Binary = 
-struct 
+module Binary =
+struct
   (** debian package format *)
-  type t = 
+  type t =
       {
         name : name ;
         version : version;
@@ -254,10 +254,10 @@ struct
 
   let parse_name = parse_package
   let parse_vpkg = parse_constr
-  let parse_veqpkg = parse_constr 
-  let parse_conj s = parse_vpkglist parse_vpkg s 
-  let parse_cnf s = parse_vpkgformula parse_vpkg s 
-  let parse_prov s = parse_veqpkglist parse_veqpkg s 
+  let parse_veqpkg = parse_constr
+  let parse_conj s = parse_vpkglist parse_vpkg s
+  let parse_cnf s = parse_vpkgformula parse_vpkg s
+  let parse_prov s = parse_veqpkglist parse_veqpkg s
   let parse_essential = function
     |("Yes"|"yes") -> true
     |("No" | "no") -> false (* this one usually is not there *)
@@ -268,18 +268,18 @@ struct
     let parse_s f field = f (single_line field (List.assoc field par)) in
     let parse_m f field = f (String.concat " " (List.assoc field par)) in
     let parse_e extras =
-      List.filter_map 
-        (fun prop -> 
-           let prop = String.lowercase prop 
+      List.filter_map
+        (fun prop ->
+           let prop = String.lowercase prop
            in
-             try 
+             try
                Some (prop,single_line prop (List.assoc prop par))
-             with Not_found -> 
-               None) 
+             with Not_found ->
+               None)
         extras
     in
 
-    let exec () = 
+    let exec () =
       {
         name        = parse_s parse_name "package";
         version     = parse_s parse_version "version";
@@ -298,17 +298,17 @@ struct
       }
     in
       (* this package doesn't either have version or name *)
-      try 
-        Some(exec ()) 
-      with Not_found -> 
-        None 
+      try
+        Some(exec ())
+      with Not_found ->
+        None
 
   (** parse a debian Packages file from the channel [ch] *)
   let parse ?(extras=[]) f ch =
 
-    let parse_packages = 
-      parse_822_iter 
-        (parse_packages_fields extras) 
+    let parse_packages =
+      parse_822_iter
+        (parse_packages_fields extras)
     in
       parse_packages f (start_from_channel ch)
 end
@@ -317,13 +317,13 @@ module Control =
 struct
 
   (** debian source section format *)
-  type source_section = 
+  type source_section =
       {
         source : name;
         section: name;
         priority: name;
         maintainer: string;
-        uploaders: string list; 
+        uploaders: string list;
         standards_version: version;
         build_depends : (vpkg * (bool * architecture) list) list list;
         build_depends_indep : (vpkg * (bool * architecture) list) list list;
@@ -332,7 +332,7 @@ struct
       }
 
   (** debian binary sections format *)
-  type binary_section = 
+  type binary_section =
       {
         package : name;
         essential : bool;
@@ -353,16 +353,21 @@ struct
   let parse_name = parse_package
   let parse_vpkg = parse_virtual_constr
   let parse_veqpkg = parse_virtual_constr
-  let parse_conj s = parse_vpkglist parse_vpkg s 
+  let parse_conj s = parse_vpkglist parse_vpkg s
   let parse_essential = function
     |("Yes"|"yes") -> true
     |("No" | "no") -> false (* this one usually is not there *)
     |_ -> assert false (* unreachable ?? *)
 
-  let parse_source_fields par = 
+  let parse_source_fields par =
     let parse_cnf s = parse_vpkgformula parse_builddeps s in
     let parse_conj s = parse_vpkglist parse_builddeps s in
-    let parse_s f field = f (single_line field (List.assoc field par)) in
+    let parse_s f field =
+      try
+        f (single_line field (List.assoc field par))
+      with Not_found ->
+        failwith (Printf.sprintf "cannot find single line field %S" field)
+    in
     let parse_m f field = f (String.concat " " (List.assoc field par)) in
     let exec () =
       {
@@ -370,7 +375,7 @@ struct
         section               = parse_s parse_name "section"; (* TODO: be more precise *)
         priority              = parse_s parse_name "priority"; (* TODO: more precise *)
         maintainer            = ""; (* TODO *)
-        uploaders             = []; (* TODO *) 
+        uploaders             = []; (* TODO *)
         standards_version     = parse_s parse_version "standards-version";
         build_depends         = default [] parse_m parse_cnf  "build-depends";
         build_depends_indep   = default [] parse_m parse_cnf  "build-depends-indep";
@@ -378,10 +383,7 @@ struct
         build_conflicts_indep = default [] parse_m parse_conj "build-conflicts-indep";
       }
     in
-      try 
-        Some (exec ()) 
-      with Not_found -> 
-        None (* this package doesn't either have version, arch or name *)
+    Some (exec ())
 
   let parse_binary_fields extras par =
     let extras = "status"::extras in
@@ -390,18 +392,18 @@ struct
     let parse_cnf s = parse_vpkgformula parse_vpkg s in
     let parse_prov s = parse_veqpkglist parse_veqpkg s in
     let parse_e extras =
-      List.filter_map 
-        (fun prop -> 
-           let prop = String.lowercase prop 
+      List.filter_map
+        (fun prop ->
+           let prop = String.lowercase prop
            in
-             try 
+             try
                Some (prop,single_line prop (List.assoc prop par))
-             with Not_found -> 
-               None) 
+             with Not_found ->
+               None)
         extras
     in
 
-    let exec () = 
+    let exec () =
       {
         package     = parse_s parse_name "package";
         essential   = default false parse_s parse_essential "essential";
@@ -420,35 +422,28 @@ struct
       }
     in
       (* this package doesn't either have version or name *)
-      try 
-        Some(exec ()) 
-      with Not_found -> 
-        None 
+      try
+        Some(exec ())
+      with Not_found ->
+        None
 
-  let parse chn = 
-    let ch = 
-      start_from_channel chn
+  let parse chn =
+    let ch = start_from_channel chn in
+
+    let src =
+      match parse_paragraph ch with
+      | Some par ->
+          begin
+            match parse_source_fields par with
+            | Some src -> src
+            | None -> failwith "Malformed source package"
+          end
+      | None -> failwith "No source package"
     in
 
-    let src = 
-      match parse_paragraph ch with 
-        | Some par ->
-            begin
-              match parse_source_fields par with
-                | Some src -> 
-                    src
-                | None ->
-                    failwith 
-                      "Malformed source package"
-            end
-        | None ->
-            failwith 
-              "No source package"
-    in
-
-    let binaries = 
-      parse_822_iter 
-        (parse_binary_fields []) 
+    let binaries =
+      parse_822_iter
+        (parse_binary_fields [])
         (fun s -> s)
         ch
     in
@@ -457,7 +452,7 @@ struct
   let filename =
     Filename.concat "debian" "control"
 
-  let default () = 
+  let default () =
     with_fn
       filename
       parse
@@ -470,13 +465,13 @@ module Watch = DFWatch
 module URI =
 struct
   type uri = string
-  type mirror = uri 
+  type mirror = uri
   type dist = string
   type section = [`Main | `Contrib | `NonFree]
 
   (**/**)
-  let concat uri1 uri2 = 
-    match String.ends_with uri1 "/", String.starts_with uri2 "/" with 
+  let concat uri1 uri2 =
+    match String.ends_with uri1 "/", String.starts_with uri2 "/" with
       | true, true ->
           uri1 ^ (String.lchop uri2)
       | false, true
@@ -485,7 +480,7 @@ struct
       | false, false ->
           uri1 ^ "/" ^ uri2
 
-  let rec concat_lst = 
+  let rec concat_lst =
     function
       | uri1 :: uri2 :: tl ->
           concat_lst ((concat uri1 uri2) :: tl)
@@ -512,8 +507,8 @@ struct
         "source/Sources.bz2"
       ]
 
-  let pool mirror src fn = 
-    concat_lst 
+  let pool mirror src fn =
+    concat_lst
       [
         mirror;
         src.Source.directory;
