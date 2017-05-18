@@ -27,10 +27,11 @@ Document "api-debian-formats"
   XOCamlbuildLibraries: debian-formats
 
 Executable test
-  Path:       test
-  MainIs:     test.ml
-  Install:    false
+  Path:         test
+  MainIs:       test.ml
+  Install:      false
   BuildDepends: debian-formats, oUnit (>= 2)
+  Build$:       flag(tests)
 
 Test main
   Command: $test
@@ -39,17 +40,17 @@ Test main
 
 Flag "examples"
   Description: Build and test examples
-  Default: false
+  Default:    false
 
 Executable "proto_oasis"
-  Path:         examples/proto_oasis
-  MainIs:       proto_oasis.ml
-  BuildDepends: debian-formats, curl, pcre, fileutils, archive.lwt, oasis, bz2, lwt.preemptive, threads
-  Install:      false
-  Build$:       flag(examples)
+  Path:           examples/proto_oasis
+  MainIs:         proto_oasis.ml
+  BuildDepends:   debian-formats, curl, pcre, fileutils, archive.lwt, oasis, bz2, lwt.preemptive, threads
+  Install:        false
+  Build$:         flag(examples)
   CompiledObject: best
 
 Test "proto_oasis"
-  Command:   $proto_oasis
+  Command:    $proto_oasis
   TestTools:  proto_oasis
-  Run: false
+  Run:        false
