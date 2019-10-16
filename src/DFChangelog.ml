@@ -57,7 +57,7 @@ let skip_line ?fst ch =
     | Some line -> skip_line' (count + 1) line
     | None -> count, None
   and skip_line' count line =
-    if Re.exec_partial skip_line_re line <> `Mismatch then
+    if Re.execp skip_line_re line then
       getl count
     else
       count, Some line
