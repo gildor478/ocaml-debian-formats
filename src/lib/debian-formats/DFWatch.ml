@@ -19,33 +19,23 @@
 (*  Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301 USA             *)
 (******************************************************************************)
 
-open DFUtils
 open ExtLib
 
 let parse ch =
   let rec parse () =
     try
       let ln = String.trim (IO.read_line ch) in
-      if String.starts_with ln "#" ||
-         String.starts_with ln "$" ||
-         ln = "" then
+      if String.starts_with ln "#" || String.starts_with ln "$" || ln = "" then
         parse ()
-      else begin
+      else
         let rec cont_line str =
-          if String.ends_with str "\\" then begin
-            (String.rchop str) ^
-            (try
-               cont_line (IO.read_line ch)
-             with IO.No_more_input ->
-               "")
-          end else begin
-            str
-          end
+          if String.ends_with str "\\" then
+            String.rchop str
+            ^ try cont_line (IO.read_line ch) with IO.No_more_input -> ""
+          else str
         in
         let full_line = cont_line ln in
         full_line :: parse ()
-      end
-    with IO.No_more_input ->
-      []
+    with IO.No_more_input -> []
   in
   parse ()
