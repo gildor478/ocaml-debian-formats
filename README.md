@@ -3,6 +3,11 @@ ocaml-debian-formats - Parse debian files
 
 [![Travis status][travis-img]][travis]
 
+> [!NOTE]
+> This library hasn't received a lot of udpates recently and is kept mostly
+> for backward compatibility. The original author is not planning to add features
+> or make significant updates.
+
 This library allows to parse various files used in Debian packaging:
 * changelog files
 * source and binary control files
